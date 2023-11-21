@@ -58,6 +58,16 @@ class Appointment(db.Model):
     appointment_time = db.Column(db.Time)
     work_hours = db.Column(db.Integer)
     status = db.Column(db.String(255))
+    def serialize(self):
+        return {
+            'appointment_id': self.appointment_id,
+            'caregiver_user_id': self.caregiver_user_id,
+            'member_user_id': self.member_user_id,
+            'appointment_date': self.appointment_date.isoformat() if self.appointment_date else None,
+            'appointment_time': self.appointment_time.isoformat() if self.appointment_time else None,
+            'work_hours': self.work_hours,
+            'status': self.status
+        }
 
 class Job(db.Model):
     __tablename__ = 'job'
@@ -144,7 +154,7 @@ def get_users():
 @app.route('/user/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     user = Users.query.get_or_404(user_id)
-    return jsonify(user.to_dict())
+    return jsonify({'user_id': user.user_id, 'email': user.email, 'given_name':user.given_name, 'surname':user.surname,'city':user.city, 'phone_number':user.phone_number, 'profile_description':user.profile_description})
 
 @app.route('/user/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
@@ -183,12 +193,12 @@ def create_caregiver():
 @app.route('/caregivers', methods=['GET'])
 def get_caregivers():
     caregivers = Caregiver.query.all()
-    return jsonify([caregiver.to_dict() for caregiver in caregivers])
+    return jsonify([{'caregiver_user_id': caregiver.caregiver_user_id, 'photo': caregiver.photo, 'gender':caregiver.gender, 'caregiving_type':caregiver.caregiving_type,'hourly_rate':caregiver.hourly_rate} for caregiver in caregivers])
 
 @app.route('/caregiver/<int:caregiver_user_id>', methods=['GET'])
 def get_caregiver(caregiver_user_id):
     caregiver = Caregiver.query.get_or_404(caregiver_user_id)
-    return jsonify(caregiver.to_dict())
+    return jsonify({'caregiver_user_id': caregiver.caregiver_user_id, 'photo': caregiver.photo, 'gender':caregiver.gender, 'caregiving_type':caregiver.caregiving_type,'hourly_rate':caregiver.hourly_rate})
 
 @app.route('/caregiver/<int:caregiver_user_id>', methods=['PUT'])
 def update_caregiver(caregiver_user_id):
