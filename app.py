@@ -1,11 +1,17 @@
+
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 
 app = Flask(__name__)
-
+CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:admin@35.228.129.140/caregiving'
 db = SQLAlchemy(app)
+
+@app.route('/')
+def hello_world():
+    return 'Hello from Flask!'
 
 class Users(db.Model):
     __tablename__ = 'users'
@@ -17,15 +23,20 @@ class Users(db.Model):
     phone_number = db.Column(db.String(20))
     profile_description = db.Column(db.Text)
     password = db.Column(db.String(255))
+    members = db.relationship('Member', backref='user', lazy=True, cascade="all, delete-orphan")
+    caregivers = db.relationship('Caregiver', backref='user', lazy=True, cascade="all, delete-orphan")
 
 class Member(db.Model):
     __tablename__ = 'member'
-    member_user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), primary_key=True)
+    member_user_id = db.Column(db.Integer, db.ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
     house_rules = db.Column(db.Text)
+    appointment = db.relationship('Appointment', backref='member', lazy=True, cascade="all, delete-orphan")
+    addresses = db.relationship('Address', backref='member', lazy=True, cascade="all, delete-orphan")
+    job = db.relationship('Job', backref='member', lazy=True, cascade="all, delete-orphan")
 
 class Caregiver(db.Model):
     __tablename__ = 'caregiver'
-    caregiver_user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), primary_key=True)
+    caregiver_user_id = db.Column(db.Integer, db.ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
     photo = db.Column(db.String(255))
     gender = db.Column(db.String(10))
     caregiving_type = db.Column(db.String(255))
@@ -33,7 +44,7 @@ class Caregiver(db.Model):
 
 class Address(db.Model):
     __tablename__ = 'address'
-    member_user_id = db.Column(db.Integer, db.ForeignKey('member.member_user_id'), primary_key=True)
+    member_user_id = db.Column(db.Integer, db.ForeignKey('member.member_user_id', ondelete='CASCADE'), primary_key=True)
     house_number = db.Column(db.String(10))
     street = db.Column(db.String(255))
     town = db.Column(db.String(255))
@@ -41,8 +52,8 @@ class Address(db.Model):
 class Appointment(db.Model):
     __tablename__ = 'appointment'
     appointment_id = db.Column(db.Integer, primary_key=True)
-    caregiver_user_id = db.Column(db.Integer, db.ForeignKey('caregiver.caregiver_user_id'))
-    member_user_id = db.Column(db.Integer, db.ForeignKey('member.member_user_id'))
+    caregiver_user_id = db.Column(db.Integer, db.ForeignKey('caregiver.caregiver_user_id', ondelete='CASCADE'))
+    member_user_id = db.Column(db.Integer, db.ForeignKey('member.member_user_id', ondelete='CASCADE'))
     appointment_date = db.Column(db.Date)
     appointment_time = db.Column(db.Time)
     work_hours = db.Column(db.Integer)
@@ -51,15 +62,16 @@ class Appointment(db.Model):
 class Job(db.Model):
     __tablename__ = 'job'
     job_id = db.Column(db.Integer, primary_key=True)
-    member_user_id = db.Column(db.Integer, db.ForeignKey('member.member_user_id'))
+    member_user_id = db.Column(db.Integer, db.ForeignKey('member.member_user_id', ondelete='CASCADE'))
     required_caregiving_type = db.Column(db.String(255))
     other_requirements = db.Column(db.Text)
     date_posted = db.Column(db.Date)
+    job_application = db.relationship('JobApplication', backref='job', lazy=True, cascade="all, delete-orphan")
 
 class JobApplication(db.Model):
     __tablename__ = 'job_application'
-    caregiver_user_id = db.Column(db.Integer, db.ForeignKey('caregiver.caregiver_user_id'), primary_key=True)
-    job_id = db.Column(db.Integer, db.ForeignKey('job.job_id'), primary_key=True)
+    caregiver_user_id = db.Column(db.Integer, db.ForeignKey('caregiver.caregiver_user_id', ondelete='CASCADE'), primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.job_id', ondelete='CASCADE'), primary_key=True)
     date_applied = db.Column(db.Date)
 
 
@@ -102,11 +114,6 @@ def delete_member(member_user_id):
     db.session.commit()
     return jsonify({'message': 'Member deleted successfully'})
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
-
 
 @app.route('/user', methods=['POST'])
 def create_user():
@@ -128,10 +135,11 @@ def create_user():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+
 @app.route('/users', methods=['GET'])
 def get_users():
     users = Users.query.all()
-    return jsonify([user.to_dict() for user in users])
+    return jsonify([{'user_id': user.user_id, 'email': user.email, 'given_name':user.given_name, 'surname':user.surname,'city':user.city, 'phone_number':user.phone_number, 'profile_description':user.profile_description} for user in users])
 
 @app.route('/user/<int:user_id>', methods=['GET'])
 def get_user(user_id):
@@ -401,5 +409,9 @@ def delete_job_application(caregiver_user_id, job_id):
     db.session.commit()
     return jsonify({'message': 'Job application deleted successfully'})
 
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
